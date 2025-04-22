@@ -2,6 +2,9 @@ const canvas = document.getElementById('poolCanvas');
 const ctx = canvas.getContext('2d');
 const angleRange = document.getElementById('angleRange');
 const angleValue = document.getElementById('angleValue');
+const powerRange = document.getElementById('powerRange');
+const powerValue = document.getElementById('powerValue');
+
 
 class Ball {
     constructor(x, y, radius, color, isCue = false) {
@@ -42,6 +45,44 @@ class Ball {
         }
     }
 }
+
+powerRange.addEventListener('input', () => {
+    powerValue.textContent = powerRange.value;
+});
+function getRandomPosition(radius) {
+    const x = Math.random() * (canvas.width - 2 * radius) + radius;
+    const y = Math.random() * (canvas.height - 2 * radius) + radius;
+    return { x, y };
+}
+
+function addBall(count = 1) {
+
+    const colors = ['black'];
+
+    const color = colors[Math.floor(Math.random() * colors.length)];
+
+    for (let i = 0; i < count; i++) {
+        let { x, y } = getRandomPosition(10);
+        balls.push(new Ball(x, y, 10, color));
+    }
+}
+
+function removeBall(count = 1) {
+    const nonCueBalls = balls.filter(b => !b.isCue);
+  
+    if (nonCueBalls.length === 0) return;
+  
+    // Shuffle and take the first `count` balls
+    const shuffled = nonCueBalls.sort(() => 0.5 - Math.random());
+    const ballsToRemove = shuffled.slice(0, Math.min(count, nonCueBalls.length));
+  
+    ballsToRemove.forEach(ball => {
+      const idx = balls.indexOf(ball);
+      if (idx !== -1) balls.splice(idx, 1);
+    });
+  }
+  
+
 
 function detectCollision(ballA, ballB) {
     const dx = ballB.x - ballA.x;
@@ -84,9 +125,6 @@ function rotate(vx, vy, sin, cos, reverse) {
 
 const balls = [
     new Ball(100, 200, 10, 'white', true),
-    new Ball(500, 200, 10, 'red'),
-    new Ball(520, 190, 10, 'yellow'),
-    new Ball(520, 210, 10, 'blue'),
 ];
 
 angleRange.addEventListener('input', () => {
@@ -97,7 +135,7 @@ function shootCueBall() {
     const cue = balls.find(b => b.isCue);
     const angleDeg = parseInt(angleRange.value);
     const angleRad = angleDeg * (Math.PI / 180);
-    const power = 10;
+    const power = parseInt(powerRange.value);
     cue.vx = power * Math.cos(angleRad);
     cue.vy = power * Math.sin(angleRad);
 }
@@ -105,9 +143,9 @@ function shootCueBall() {
 function drawTrajectory(cue) {
     const angleDeg = parseInt(angleRange.value);
     const angleRad = angleDeg * (Math.PI / 180);
-    const power = 10;
-    const tx = cue.x + Math.cos(angleRad) * power * 25;
-    const ty = cue.y + Math.sin(angleRad) * power * 25;
+    const power = parseInt(powerRange.value);
+    const tx = cue.x + Math.cos(angleRad) * power * 2.5;
+    const ty = cue.y + Math.sin(angleRad) * power * 2.5;
 
     ctx.beginPath();
     ctx.setLineDash([5, 5]);
