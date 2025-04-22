@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Pool Game with Angle Control</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+    <canvas id="poolCanvas" width="800" height="400"></canvas>
+
+    <div class="controls">
+        <label for="angleRange">Angle: <span id="angleValue">0</span>°</label><br>
+        <input type="range" id="angleRange" min="-180" max="180" value="0">
+        <br><br>
+        <button onclick="shootCueBall()">Shoot</button>
+    </div>
+
+    <script src="./script.js"></script>
+</body>
+
+</html>

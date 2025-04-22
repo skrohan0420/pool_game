@@ -1,0 +1,12 @@
+canvas {
+    background: #35654d;
+    display: block;
+    margin: auto;
+    border: 10px solid #8B4513;
+    border-radius: 20px;
+}
+
+.controls {
+    text-align: center;
+    margin-top: 20px;
+}
