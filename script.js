@@ -69,19 +69,19 @@ function addBall(count = 1) {
 
 function removeBall(count = 1) {
     const nonCueBalls = balls.filter(b => !b.isCue);
-  
+
     if (nonCueBalls.length === 0) return;
-  
+
     // Shuffle and take the first `count` balls
     const shuffled = nonCueBalls.sort(() => 0.5 - Math.random());
     const ballsToRemove = shuffled.slice(0, Math.min(count, nonCueBalls.length));
-  
+
     ballsToRemove.forEach(ball => {
-      const idx = balls.indexOf(ball);
-      if (idx !== -1) balls.splice(idx, 1);
+        const idx = balls.indexOf(ball);
+        if (idx !== -1) balls.splice(idx, 1);
     });
-  }
-  
+}
+
 
 
 function detectCollision(ballA, ballB) {
@@ -144,17 +144,138 @@ function drawTrajectory(cue) {
     const angleDeg = parseInt(angleRange.value);
     const angleRad = angleDeg * (Math.PI / 180);
     const power = parseInt(powerRange.value);
-    const tx = cue.x + Math.cos(angleRad) * power * 2.5;
-    const ty = cue.y + Math.sin(angleRad) * power * 2.5;
 
+    const dx = Math.cos(angleRad);
+    const dy = Math.sin(angleRad);
+    const startX = cue.x;
+    const startY = cue.y;
+    const radius = cue.radius;
+
+    let minT = Infinity;
+    let collisionPoint = null;
+    let collisionType = null;
+    let hitBall = null;
+
+    // Check wall collision
+    const walls = [
+        { t: (radius - startX) / dx, wall: 'vertical' },
+        { t: (canvas.width - radius - startX) / dx, wall: 'vertical' },
+        { t: (radius - startY) / dy, wall: 'horizontal' },
+        { t: (canvas.height - radius - startY) / dy, wall: 'horizontal' }
+    ];
+
+    for (const wall of walls) {
+        if (wall.t > 0 && wall.t < minT) {
+            minT = wall.t;
+            collisionPoint = {
+                x: startX + dx * wall.t,
+                y: startY + dy * wall.t
+            };
+            collisionType = 'wall';
+        }
+    }
+
+    // Check ball collisions
+    for (const ball of balls) {
+        if (ball.isCue) continue;
+
+        const px = ball.x - startX;
+        const py = ball.y - startY;
+
+        const a = dx * dx + dy * dy;
+        const b = -2 * (px * dx + py * dy);
+        const c = px * px + py * py - Math.pow(ball.radius + cue.radius, 2);
+        const discriminant = b * b - 4 * a * c;
+
+        if (discriminant >= 0) {
+            const sqrtD = Math.sqrt(discriminant);
+            const t1 = (-b - sqrtD) / (2 * a);
+            const t2 = (-b + sqrtD) / (2 * a);
+
+            const tHit = t1 > 0 ? t1 : t2 > 0 ? t2 : null;
+
+            if (tHit && tHit < minT) {
+                minT = tHit;
+                collisionPoint = {
+                    x: startX + dx * tHit,
+                    y: startY + dy * tHit
+                };
+                collisionType = 'ball';
+                hitBall = ball;
+            }
+        }
+    }
+
+    // Draw initial trajectory
     ctx.beginPath();
     ctx.setLineDash([5, 5]);
-    ctx.moveTo(cue.x, cue.y);
-    ctx.lineTo(tx, ty);
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(collisionPoint.x, collisionPoint.y);
     ctx.strokeStyle = 'white';
     ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.setLineDash([]);
+
+    // BALL HIT CASE
+    if (collisionType === 'ball') {
+        // Draw red circle at collision point
+        ctx.beginPath();
+        ctx.setLineDash([]);
+        ctx.arc(collisionPoint.x, collisionPoint.y, hitBall.radius + 2, 0, Math.PI * 2);
+        ctx.strokeStyle = 'red';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Compute vector from cue to hit ball (impact line)
+        const nx = hitBall.x - collisionPoint.x;
+        const ny = hitBall.y - collisionPoint.y;
+        const length = Math.sqrt(nx * nx + ny * ny);
+        const normalX = nx / length;
+        const normalY = ny / length;
+
+        // Target ball direction = along the normal
+        const impactLineX = normalX;
+        const impactLineY = normalY;
+
+        // Cue ricochet = incoming vector - 2 * projection onto normal
+        const dot = dx * normalX + dy * normalY;
+        const ricochetX = dx - 2 * dot * normalX;
+        const ricochetY = dy - 2 * dot * normalY;
+
+        // Draw cue ball ricochet line (blue)
+        ctx.beginPath();
+        ctx.moveTo(collisionPoint.x, collisionPoint.y);
+        ctx.lineTo(collisionPoint.x + ricochetX * 60, collisionPoint.y + ricochetY * 60);
+        ctx.strokeStyle = 'blue';
+        ctx.setLineDash([]);
+        ctx.stroke();
+
+        // Draw hit ball direction line (orange)
+        ctx.beginPath();
+        ctx.moveTo(hitBall.x, hitBall.y);
+        ctx.lineTo(hitBall.x + impactLineX * 40, hitBall.y + impactLineY * 40);
+        ctx.strokeStyle = 'orange';
+        ctx.stroke();
+    }
+
+    // WALL RICOCHET CASE
+    if (collisionType === 'wall') {
+        let reflDx = dx;
+        let reflDy = dy;
+        const wall = walls.find(w => w.t === minT).wall;
+        if (wall === 'vertical') reflDx *= -1;
+        if (wall === 'horizontal') reflDy *= -1;
+
+        const ricochetLength = 100;
+        const endX = collisionPoint.x + reflDx * ricochetLength;
+        const endY = collisionPoint.y + reflDy * ricochetLength;
+
+        ctx.beginPath();
+        ctx.moveTo(collisionPoint.x, collisionPoint.y);
+        ctx.lineTo(endX, endY);
+        ctx.strokeStyle = 'red';
+        ctx.setLineDash([]);
+        ctx.stroke();
+    }
 }
 
 function animate() {
@@ -178,5 +299,26 @@ function animate() {
 
     requestAnimationFrame(animate);
 }
+
+
+angleRange.addEventListener('wheel', (e) => {
+    e.preventDefault(); // Prevent page scrolling
+
+    const delta = Math.sign(e.deltaY);
+    const step = parseInt(angleRange.step) || 1;
+
+    // Scroll up = decrease value, scroll down = increase
+    if (delta > 0) {
+        angleRange.value = Math.min(parseInt(angleRange.value) + step, angleRange.max);
+    } else {
+        angleRange.value = Math.max(parseInt(angleRange.value) - step, angleRange.min);
+    }
+
+    // Update the UI or trigger any dependent behavior
+    angleValue.textContent = `${angleRange.value}°`;
+
+    // Optionally: trigger your drawTrajectory() function here
+    drawTrajectory(cueBall);
+});
 
 animate();
